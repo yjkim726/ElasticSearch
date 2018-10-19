@@ -1,0 +1,264 @@
+1 서비스 백업 및 배포
+
+ 
+•현재 쓰이는 case로는 snapshot을 이용하여, 백업 및 서로 다른 클러스터에 전달
+
+관련 조사 자료
+http://knight76.tistory.com/entry/Elasticsearch-%EC%8A%A4%EB%83%85%EC%83%B7-%EC%A0%80%EC%9E%A5-%EB%B0%8F-%EB%B3%B5%EA%B5%AC?category=587994
+http://tech.javacafe.io/2017/12/08/Elasticsearch_Snapshot_%EB%A7%8C%EB%93%A4%EA%B8%B0/
+http://readme.skplanet.com/wp-content/uploads/%ED%8A%B8%EB%9E%991-7.Elastic-Search%EB%A5%BC-%EC%9D%B4%EC%9A%A9%ED%95%9C-Log-%EA%B8%B0%EB%B0%98-%EB%AA%A8%EB%8B%88%ED%84%B0%EB%A7%81-Log-%EA%B2%80%EC%83%89-%EC%8B%9C%EC%8A%A4%ED%85%9C-%EA%B5%AC%EC%B6%95.pdf
+http://kimjmin.net/2018/01/2018-01-build-es-cluster-3/
+http://kimjmin.net/2017/03/2017-02-seoul-meetup/elasticsearch-in-nbt.pdf
+
+ 
+
+2 ElasticSearch yml 파일 설정 정보
+
+[설정파일의미]
+
+    ※ 클러스터링할 그룹명 (묶고자 하는 서버들에 elasticsearch.yml 파일에서 이름을 동일하게 주면 클러스터링 됨)
+
+        cluster.name: group1
+
+    ※ 검색 및 색인 서버로 사용하고자 할 경우 설정
+
+        node.master: true
+
+        node.data : true
+
+    ※ 검색 전용 서버로 사용하고자 할 경우 설정 (검색 로드발라서)
+
+        node.master: false
+
+        node.data : false
+
+    ※ 색인 전용 서버로 사용하고자 할 경우 설정
+
+        node.master: false
+
+        node.data : true
+
+    ※ master / slave node 로 설정시 추가
+
+        node.master: true
+
+        node.data : false
+
+    ※ 색인 파일(데이터) 사이즈가 작을 경우 수치를 작게 (1), 사이즈가 클 경우 수치를 크게 (기본 5)
+
+    ※ 하나의 색인 파일을 몇 개로 나눠서 저장할 것인지 정의
+
+        index.number_of_shards: 5
+
+    ※ 색인 파일에 대한 복사본 생성 수치 (기본 1)
+
+        index.number_of_replicas: 1
+
+    ※ 설정 후 서버간 클러스터링 되는 과정을 파악하기 어려움
+
+        두 대의 서버에 cluster.name 을 같게 해서 실행 시켜면 자동으로 clustering 됨
+
+    ※ 서버 한대에서 여러개의 elasticsearch instacne 실행 방법
+
+        ./elasticsearch -p pidfile1 -Des.config=elasticsearch/config/elasticsearch1.yml
+
+        ./elasticsearch -p pidfile2 -Des.config=elasticsearch/config/elasticsearch2.yml
+
+        ※ 기타 옵션
+
+        -Xmx1g -Xms1g -Des.max-open-files=true
+
+    ※ node 의 의미
+
+        elasticsearch 에서 node == index 에 의미를 가짐
+
+ 
+
+3 색인 변경을 별명(alias)로 이용하는 방법
+
+해당 내용은 US_new - > US로 변경하는 전체색인 반영 운영 방식이랑 동일하다
+
+http://knight76.tistory.com/entry/elasticsearch-%EC%83%89%EC%9D%B8index-%EB%B3%80%EA%B2%BD%EC%9D%84-%EB%B3%84%EB%AA%85alias%EB%A1%9C-%EC%9D%B4%EC%9A%A9%ED%95%98%EB%8A%94-%EB%B0%A9%EB%B2%95
+
+http://blog.geun.kr/86 ★
+
+4 Alias를 활용한 batch / online 색인 관리
+
+https://iju707.gitbooks.io/elasticsearch/content/indices-aliases.html
+
+https://dgkim5360.tistory.com/entry/mapping-management-of-elasticsearch-index
+
+http://jjeong.tistory.com/940
+
+http://blog.geun.kr/86
+
+5 Routing (라우팅 / 샤딩제어)
+
+ 
+•라우팅이란?
+자식 문서가 부모 문서와 같은 샤드에 있는 것이, 다른 샤드에 있을 때 보다 검색 성능이 더 좋을 것이다.
+라우팅이란 이처럼 문서를 특정 샤드에 위치시킬 수 있는 역할을 한다.
+
+보통 색인시 문서의 ID값을 해싱하여 해당 문서를 샤드에 색인하게 된다.
+
+하지만 라우팅 값을 이용하면 해당 routing값을 해싱하여 샤드에 색인하게 된다.
+
+
+•왜 라우팅을 사용하는가
+라우팅을 사용하지 않을 경우, 엘라스틱서치는 문서를 여러 샤드들에 균등하게 분포시킬 것이다.
+그렇다면 왜 라우팅을 사용해야 할까?
+
+그 이유는 커스텀 라우팅은 같은 라우팅 값을 공유하는 문서들을 한 샤드에 저장할 수 있도록 하기 때문이다.
+
+이 문서들이 같은 색인에 존재할 경우, 쿼리에 라우팅 값을 지정하여 요청이 색인의 특정 샤드들에 대해서만 수행되도록 할 수 있다.
+
+
+
+•http://clearpal7.blogspot.com/2018/04/elasticsearch_29.html
+
+
+        ----------------------------------------------------------------------------------------------------------------------------------
+•routing 값 설정 하는 방법은?
+
+  - 색인 시 특정 shard 로 색인을 하고, 검색 시 지정된 shard 로만 검색 할 수 있도록 지원
+  - 색인 field 중 unique key 에 해당하는 값을 가지고 routing path 를 지정
+  - 검색 시 지정한 path 를 query 에 주어 분산된 indices 를 모두 검색 하지 않고 지정된 indices 만 검색
+  - routing field 는 store yes, index not_analyzed 로 설정 되어야 함
+  - 기본 설정
+        "routing" : {
+            "required" : true,
+            "path" : "test.user_uniq_id"  }   ( http://jjeong.tistory.com/720 )
+
+
+•Get API
+$ curl -XGET http://localhost:9200/INDEX/TYPE/_id
+_routing은 쉽게는 문서에 대한 그룹이나 분류에 활용을 할 수 있는 기능이라고 이해 하시면 좋습니다.
+즉, 문서를 색인 할 때 같은 분류에 속하는 문서들을 특정 shard로 색인을 하고 검색 시에도 모든 shard를 대상으로 하지 않기 때문에 성능적인 부분이나 활용에서도 유용합니다.
+_routing도 _id 와 동일하게 해당 값을 이용해서 shard id 를 구한다는 점에서 동일하며 mapping 설정도 동일 합니다.
+차이점이 있다면 _id 는 문서 자체에 대한 routing 이고, _routing 은 문서 집단 또는 그룹에 대한 routing 이라는 것입니다.
+또한 검색 입장에서는 _id 는 문서 하나를 검색해서 가져오지만, _routing 은 지정된 key 값에 의한 shard 들을 대상으로 검색을 하게 됩니다.
+( http://jjeong.tistory.com/1052 )
+
+
+•routing 값 변경 + routing 기능을 이용하여 batch ( data / set )  | online ( data / set ) 범위로 샤드를 구분지을수 있지 않을까?
+
+
+•
+
+
+
+
+6 elastic-dump
+•snapshot : 전체 색인 이나 alias 에 대해 복원이 필요한 경우에만 유용
+•전체 색인 말고 일부 색인에 대해서만 실시간으로 반영이 필요한 경우에는? snapshots도 가능하지만, 시간이 오래걸릴수 있다
+•alias등을 실시간으로 배포 해주기 위한 툴
+https://www.npmjs.com/package/elasticdump
+•elastic-dump 설치방법
+npm install elasticdump
+
+
+•사용 명령어
+
+elasticdump \  --input=http://production.es.com:9200/my_index \  --output=/data/my_index_data.json \  --type=data
+
+--input : 실제 넣을 index 혹은 alias, 배포 대상
+--output : 배포 할 곳
+--type : analyzer, mapping, data 등 3가지 type이 있음
+
+
+
+•auto option error 발생
+
+./elasticdump --input=http://localhost:9200/us_update --output=http://203.236.86.169:9201/us_online/ --type=data 와 같이 명령어를 입력 할 경우
+
+
+
+위와 같이 missing authentication token for REST request 에러 발생
+
+A: 
+https://www.elastic.co/guide/en/x-pack/current/http-clients.html
+curl --user rdeniro:taxidriver -XPUT 'localhost:9200/idx' 와 같이 user : password 명 입력 해줘야함
+
+./elasticdump --input=http://elastic:elastic@localhost:9200/us_update --output=http://elastic:elastic@203.236.86.169:9201/us_online/ --type=data
+위와 같이 입력할 경우 us_update에 있는 내용이 us_online으로 적용
+id 와 매칭하여 inserting
+
+7 실제 서비스 운영 환경 구상
+◾snapshot의 문제점
+다른 클러스터로 synchronize를 진행 할 경우 , backup 디렉토리를 scp 로 보낸뒤 snapshot에서 restore 할 경우, 엘라스틱 샤딩 되는 로딩 시간이 길다 
+ > 전체색인시 문제 되지 않지만, 작은 필드 업데이트나 online update의 경우 문제가 됨
+
+
+◾elastic-dump의 문제점
+색인 서버에서 index POST ( any field update ) 하여도 elastic-dump를 이용하여 서비스 서버로 배포할 경우에는 index PUT ( all field overwrite ), 즉 전체 재배포 이기 때문에
+업데이트 대상이 아닌 데이터들도 재 배포가 됨 -비용이 든다
+
+
+
+◾case 1 : 색인-서비스 서버로 운영 할 경우 
+
+
+
+
+U1 에 대한 index를 4가지로 세부 index 설정한다 
+1. U1_field_batch ( 전체 document + field update 대상 필드들 )
+2. U1_other_batch ( 1 이외의 나머지 document )
+3. U1_field_online ( 증분 document + field update 대상 필드들 )
+4. U1_other_online ( 3 이외의 나머지 증분 document )
+
+위와 같이 서비스 할 경우 이슈 사항
+● other 에 해당하는 필드 중에 변경 사항이 필요할 때 비용
+● 운영을 할 때, 스크립트 설정 및 변경 사항이 있을 경우 같이 운영 자체가 복잡할 수 있음
+
+추가 이슈
+● online 한달 전것들은 batch로 merge 하여 online 최신화 : https://www.elastic.co/guide/en/elasticsearch/reference/6.4/indices-forcemerge.html
+
+
+
+◾case 2:  서비스+색인 서버 ( swtiching )
+
+
+각각 index를 다르게 두고 or replica 설정을 2~3으로 할 경우, FU 준비날 KR_v3 을 내려서 update 하고, 검증 완료 되면 v2로 하고, 아침 점검 끝나면 v1 으로 한다
+
+위와 같이 서비스 할 경우 이슈 사항
+● 각각 index를 다르게 둘 경우 : 중복제거?, L4 기능을 수동으로 해줘야함
+● replica 로 설정 할 경우 : 동기화 시점이 언제 되며, 장애가 났을때 처리?
+● 색인 3번, 검증도 3번도 해야 할 수도 있음
+
+8. 서비스 환경 구상 테스트
+•색인-서비스 서버로 운영 할 경우 [테스트]
+
+1 US_field_batch 100건 / US_other_batch 100건 씩 준비된 서버에서 0건인 서버로 elasticdump 이용해서 배포
+
+2 아래와 같이 0건인 서버에 배포
+
+
+
+3  ./elasticdump --input=http://elastic:elastic@localhost:9202/us_other_batch --output=http://elastic:elastic@203.236.86.168:9200/us_other_batch --type=data
+                                       100건이 존재하는 서버(athena2)                                                                          0건 서버(athena1)
+
+
+4 위와 같이 us_field_batch도 실행한뒤, athena1 (0건 서버) 에서 다시 확인해본다
+
+
+
+5 alias로 us_field_batch + us_other_batch를 묶어놓은뒤, 조회할 경우
+
+
+
+
+•500만건 테스트
+◆ 색인 시간 : 12시간 
+
+◆ 배포 시간 : 약 1시간 40분 ( 9시 22분 ~ 11시 3분 종료 )
+◆ 배포 크기 : 1.1 G
+
+
+•famly 변동정보만 500만건 테스트
+◆ 데이터는 더 적은데 시간은 거의 비슷
+      ▷  1:! 매칭 비교 후 데이터가 같은지 안 같은지 판단하는 로직이 있는거 같음 ( 실제로 같을 시 에는 result : noop 라고 뜸 ) 
+
+
+
+
+•판단 : case1 은 엘라스틱서치로 구성할 경우 비 효율적일 수 있다
