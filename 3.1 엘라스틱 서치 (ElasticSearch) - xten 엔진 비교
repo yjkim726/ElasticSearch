@@ -1,0 +1,267 @@
+ 
+
+https://d2.naver.com/helloworld/273788네이버 엘라스틱서치 로그 시스템 설정
+
+● 절단 연산자 ( *, ? )
+
+ 
+•Asterisk ( * ) / 물음표 (?) 
+참고자료 : 일래스틱서치 고급 기능의 개념과 활용 p. 95 / 시작하세요! 엘라스틱서치 p.224 /  WIPSON 고객센터-서비스안내 
+
+
+
+> 엘라스틱 기능으로 사용 가능
+•"AG": "CARGILL & ASSOCIATES, P.L.L.C",  로 데이터가 입력 된 경우
+•WILDCARD
+
+
+
+전 / 후방 절단 연산이 가능하며, 위 그림과 같이 사용이 가능하다
+
+
+•PREFIX
+위 그림과 같이 사용이 가능하며, wildcard와 다르게 전방 절단 연산은 불가능하다
+
+● 인접연산자 ( adj , near )
+
+ 
+•ADJ / NEAR
+참고 https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-span-near-query.html /  WIPSON 고객센터-서비스안내
+
+
+•위 기능도 Elastic 으로 사용이 가능하다
+•단어 단위로 분리가 되는 형태 분석의 경우 caterpillar / inc / intellectual / property / detp 로 분리가 된다
+
+
+ 
+•ADJ 일 경우 ( 순서/방향 영향이 있다 )
+[1] caterpillar [2] dept 사이의 단어 차이는 3개가 난다 ( inc , intellectual , property )
+그러므로, slop :3 으로 설정, in_order : true 일 경우 방향 영향이 있다고 판단
+
+
+
+
+순서에 영향이 있기 때문에, 두 단어 [1], [2] 의 순서를 변경 할 경우 검색이 되지 않는다 
+
+
+
+•NEAR 일 경우 ( 순서/방향 영향이 없다 )
+위 단어와 동일하게 하고 in_order : false 로 줄 경우, 순서/방향에 영향을 받지 않게 설정 된다
+
+
+그렇기 때문에, 위의 ADJ 와 달리 [1] 단어와 [2] 단어의 순서를 변경하여도 검색에 영향을 받지 않고, 
+두 단어 사이의 간격이 3 인 경우의 결과를 모두 찾는다
+
+
+● 구문검색연산자 / 완전일치 ( " " )
+
+ 
+•완전 일치 ( " " )
+
+
+구문 검색 연산자를 구현하는 방법 두가지 방법이 있다
+•TERM
+term 쿼리는 용어 분석 ( 형태소 분석)을 수행하지 않는 하위 레벨 쿼리 ( low-level query) 이다
+term 으로 검색 시 주의 사항은 term 으로 지정 된 쿼리는 형태소 분석을 하지 않기 때문에, 아래와 같이 일부만 검색 할 경우 검색 되지 않는다
+
+
+
+term 을 사용할 때는, 색인 당시 용어 분석에 맞춰 검색을 해야한다
+위 쿼리를 용어 분석 하면 나오는 결과는 아래와 같으며 ( TI 는 english segment 단위로 형태소 분석을 지정함 )
+
+
+이 기준에 맞춰서 검색을 해야합니다
+아래와 같이 "casket" 만 검색 할 경우 색인분석과 일치하므로 검색이 됩니다
+
+
+하지만, term 과 같은 방법은 기존 완전일치 검색과 일부 다른 점이 있으므로 두번째 방법을 사용하겠습니다
+ 
+•match_phrase
+match 쿼리는 검색어 순서와 각 용어 간 근접성을 고려하지 않는다
+match_phrase 도큐먼트에 순서가 잘못된 용어가 있으면 결과에 해당 시키지 않는다
+
+match_phrase 를 사용시, 일부의 순서를 맞춰 검색할 경우 정상적으로 결과 값이 나옵니다
+
+이 방법을 기준으로 위 결과 표와 비교 해보면
+
+위와 같이 나오는데, match_phrase의 경우 형태소분석대로 일치 시키기 때문에 이와 같은 문제가 발생한다
+
+
+
+ 
+
+● 불용어 / 예외 파일 추가
+
+ 
+
+ 참고자료 : 시작하세요 엘라스틱 서치 p 313
+• STOP 분석기
+: lowercase 토크나이저 + stop 토큰필터
+•사용방법
+
+stopwords : 스톱워드를 등록한다
+stopwords_path : 스톱워드 목록이 있는 파일 경로를 지정하며 엘라스틱서치 홈 아래 config 디렉토리의 위치를 기준으로 한다
+                             스톱워드 목록 파일은 UTF-8 인코딩으로 한 줄에 한 단어씩 입력돼야 한다
+
+
+
+아래는 기본적으로 제공되는 영어-불용어를 사용하는 경우
+
+
+ 
+
+● 기분석 / 스테밍 사전
+
+ 
+•기분석 사전
+
+사전에 추가된 단어는 입력 된 형태로 분석이 되며, 해당 term의 거리는 동일하다
+ex ) 광섬유 -> 광 / 섬유 / 광섬유 로 분석이 됩니다
+
+해당 분석의 경우 1 광섬유 2 광섬유 이렇게 두 번 표기가 되어야 하며 2 광섬유=> 에 필터를 적용하여, 2 광 / 섬유로 나눈다
+
+
+
+분석기에 해당 필터들을 추가한다 keyword_repeat : term 반복되고, unique_stem : 같은 단어 반복 시 중복제거
+
+
+
+
+•zeus5  /data/wipsplus/mkdict 참고
+•스테밍 사전
+https://www.elastic.co/guide/en/elasticsearch/guide/current/controlling-stemming.html
+
+
+
+stemming 처리되는 영어에 스테밍 사전 등록, keywords 형식으로 단어를 추가할 수도 path로 파일 읽어올수도 있다
+( https://www.elastic.co/guide/en/elasticsearch/reference/current/analysis-keyword-marker-tokenfilter.html )
+•스테밍 사전에 등록된 "booking" 과 등록되지 않은 "books" 비교 결과
+books는 스테밍 처리된다 
+
+
+● 합필드
+
+https://discuss.elastic.co/t/how-to-join-two-index/57377
+•필드1 : 필드2+ 필드3  이렇게 제공하는 기능은 없어 보임
+•대신  합필드는 ( A and B)  field1 로 검색 할 경우 (A field2 or B field2 ) and ( A field3 or B field3) 으로 검색 되는 형식
+•이와 동일 한 기능이 "크로스 필드 매칭"  - 일래스틱서치 고급 기능의 개념과 활용 p129
+
+추가 조사
+
+
+•cross_field match는 합필드용 
+ex )  TI = TIK + TIE 일때 TI 검색을 하면 자동적으로 TIK, TIE로 검색이 들어감
+•copy_to는 필터용이나 TOC용으로 쓰이는 필드 복사
+ex ) AP에는 AP와 AP_P 가 있음 이때 AP_P 는 copy_to를 이용하여 지정 
+
+● 한글 형태소 분석
+•은전한닢 설치 방법 :  
+http://sungpil.com/2015/03/21/elasticsearche-hangeul-hyeongtaeso-bunseoggi-dalgi1/
+http://guruble.com/mecab-%ED%95%9C%EA%B8%80-%ED%98%95%ED%83%9C%EC%86%8C-%EB%B6%84%EC%84%9D%EA%B8%B0-%ED%94%8C%EB%9F%AC%EA%B7%B8%EC%9D%B8-%EC%84%A4%EC%B9%98%ED%95%98%EA%B8%B0/
+
+
+
+
+1.  한글 형태소 분석 종류
+•(1) kr_analyzer : Lucene korean analyzer
+•(2) korean_index : MeCab Korean standard analyzer (복합명사를 분해함) - 은전한닢 1
+•(3) korean_query : MeCab Korean query analyzer (복합명사를 분해하지 않음) - 은전한닢 2
+•(4) open-korean-text : 트위터에서 개발한 한국어 분석기
+
+2.  성능 비교
+•(1), (2), (3) 비교한 사이트 : 
+http://guruble.com/elasticsearch-%ED%95%9C%EA%B8%80-%ED%98%95%ED%83%9C%EC%86%8C-%EB%B6%84%EC%84%9D%EA%B8%B0analyzer-%EB%B9%84%EA%B5%90/
+
+▶ 결론1 : (1) vs (2)
+   간단한 플러그인 설치로 기본적인 한글 문서의 검색을 수행하고자 한다면 (1) Lucene Korean Analyzer를 이용하는 것만으로도 충분한 효과를 얻을 수 있습니다. 다만, 다음과 같은 경우에는 (2) MeCab 
+   Korean Analyzer 가 좀 더 정확한 결과를 반환합니다.
+
+1.형태소 자체(어절, 명사 등)를 결과에 이용하는 경우
+2.복합명사를 분해하지 않고 워드 클라우드 등에 이용하고자 하는 경우
+3.좀 더 세분화된 단어사전을 필요로 하는 경우
+
+▶ 결론2 : 은전한닢은 AWS에서도 지원되는 신뢰도 높은 플러그인
+   https://aws.amazon.com/ko/blogs/korea/amazon-elasticsearch-service-now-supports-korean-language-plugin/
+
+
+•(2), (4) 비교한 사이트 : 
+
+▶ 결론 :  https://www.elastic.co/kr/blog/using-korean-analyzers 참고
+
+
+
+ < 텍스트 분석 시간 >
+
+
+< 텍스트 분석 중 자바힙 메모리 사용량(1번째실행) >
+
+
+
+< 텍스트 분석 중 자바힙 메모리 사용량(2번째실행) >
+
+
+나라의 말이 중국과 달라 한자와는 서로 맞지 아니할새 이런까닭으로 어리석은 백성이 이르고자 하는 바 있어도 마침내 제 뜻을 능히 펴지 못할 사람이 많으니라 내 이를 위하여, 가엾게 여겨 새로 스물여덟 자를 만드나니 사람마다 하여금 쉽게 익혀 날마다 씀에 편안케 하고자 할 따름이니라
+
+
+<한글 형태소 분석결과>
+
+
+ < xten 형태소 분석 결과 > 
+
+
+
+
+ 
+
+검색 시 옵션
+
+1.  Gouping
+•AN 필드를 기준으로 grouping을 시도하는 경우
+
+▶ aggregation 을 사용
+▶ 
+
+
+2.  중복제거
+•중복제거 로직
+▶  AN(출원번호) 기준으로 grouping 에서 내부 aggregation을 추가 : top_hits 의 size 1 은 그룹핑 된 documents 중 한 개만 가져오겠다
+▶  그중에서 KC(문헌번호) 기준으로 정렬 진행
+
+
+3.  필드별 정렬
+•Date / Sort / Part 별 sorting 구현
+( 고급 기능의 개념과 활용 p 157, 시작하세요! 엘라스틱서치 p 135 ) 
+
+•ID 값을 sort 할때
+
+ "sort" : [
+
+    {"_id" : "desc"}
+
+    ]
+
+와 같은 형식을 쓰며, 문자열 sort 제공 ( ex 999970 -> 99997  이 나온다)
+index명칭도 고려 ( get us_index4,us_index3/US/_search 이나 get us_index3,us_index4/US/_search 나 모두 index3의 값이 먼저 출력됨)
+
+4. 필드별 가중치 추가 (추천검색)
+•특정 필드와 일차하는 항목을 발견하면 도큐먼트 스코어를 높인다
+( 고급 기능의 개념과 활용 p 233 , 일래스틱 입문 6 p 132 )
+▶ 
+
+ 
+
+5 npp=50 과 같이 결과 document 갯수 설정
+•URL 뒤에 &scroll=10m&size=50 을 붙여준다
+
+
+ 
+
+참고자료
+
+샤딩동작과정 : http://eminentstar.tistory.com/54
+
+샤딩알고리즘:http://jjeong.tistory.com/926
+
+다중서버분산:http://develop.sunshiny.co.kr/1008
+
+엘라스틱서치기초;https://www.slideshare.net/JunyiSong1/elasticsearch-45936425
