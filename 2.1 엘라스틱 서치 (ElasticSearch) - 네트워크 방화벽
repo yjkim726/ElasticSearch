@@ -1,0 +1,45 @@
+이슈사항 -1
+
+방화벽 관계없이, 내부에서 통신할 경우 :  elasticsearch-6.2.4/config/elasticsearch.yml 에서 특별히 설정 값을 주지 않는다.
+
+포트, IP 설정이 없기 때문에 자동으로 127.0.0.1:9200 으로 설정
+
+ curl -X GET http://localhost:9200/_cluster/health 와 같은 명령어를 사용할 경우, 정상적으로 cluster 정보가 나온다
+
+하지만, 다른 클러스터 혹은 같은 클러스터 내 다른 노드들끼리 통신을 하려고 할때 localhost가 아닌 외부 IP 값을 설정해주어야 한다
+
+
+
+ex )  elasticsearch-6.2.4/config/elasticsearch.yml
+
+#외부 IP
+
+network.publish_host: "203.236.86.168" 
+
+#내부 IP
+
+network.bind_host: "10.1.1.68"
+
+ 
+
+
+
+ 
+
+현재 위와 같이 설정을 하고 엘라스틱 구동을 할 경우
+
+
+
+ 다음과 같은 에러 발생
+
+ERROR: [2] bootstrap checks failed
+
+[1]: max file descriptors [4096] for elasticsearch process is too low, increase to at least [65536]
+
+[2]: max virtual memory areas vm.max_map_count [65530] is too low, increase to at least [262144]
+
+ 
+
+이와 관련된 해결 방안 > http://libqa.com/wiki/807
+
+ 
