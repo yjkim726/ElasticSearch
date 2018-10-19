@@ -1,0 +1,168 @@
+7 유사도 검색
+
+ 
+1.텍스트 분석의 기초
+
+문자필터 : 개별 문자 또는 연속 된 문자를 특정 문자로 매핑. ex)   :) 는 _smile_  ,  :( 는 _sad_ 등으로 변환
+토크나이저  : 분석기, 문자열을 받아 특정 기준으로 나눠 문자로 나누는 방식
+토큰필터 : 토크나이저로 분석한 토큰의 추가, 삭제, 변경 가능  ex)   소문자 토큰 필터 : 입력 데이터가 모두 소문자 치환 / 불용어 토큰 필터 : 문맥에 의미 없는 단어 제거 a, an , the, is 등
+
+대략 두가지의 과정 즉, 단어의 분리와 가공의 과정을 거치는데 전자는 'Tokenizer', 후자는 'Token Filter'가 담당한다.
+
+
+2.구조화 /  non-구조화 된 데이터 검색
+2-1. 엘라스틱서치 검색에는 (1) non-구조화 된 쿼리(유사도 기반 쿼리)(2) 구조화 된 쿼리 (용어 레벨 쿼리) 가 있는데  
+       (1)의 경우 각 도큐먼트에 스코어를 반환해 해당 도큐먼트가 얼마나 일치하는가 판단 (high-level queries)
+       (2)의 경우 결과에 단어가 포함이 되었는지 "예" / "아니오" 로 판단 (low-level queries)
+
+2-2 용어 레벨 쿼리
+● keword type 필드는 분석되지 않고, 곧바로 역색인 용어로 저장
+● Range / Exists / Term / Terms 쿼리가 있다
+
+2-3 용어 레벨 쿼리 종류
+● Range : 정수, integer, long, 날짜 등의 타입필드에 적용 가능하며, 특정 범위를 지정할 수 있다
+● Exists : 특정 필드에 null 값과 공백이 아닌, 레코드만 가져오고 싶을때 유용하게 사용
+● Term : OR 검색이 아닌 query 밑 term이 모두 일치 할 경우 ( *WIPS의 완전일치와 동일 )
+    ex ) "term" : { "필드1" : "hybrid car" } 로 할 경우, 필드1에서 "hybrid car"가 일치하는 도큐먼트 검색
+
+2-4 전문 텍스트 검색
+● 전문 텍스트 쿼리 = non-구조화 된 쿼리 = 유사도 기반 쿼리
+● 실제 검색 연산을 수행하기 전에 검색용어를 대상으로 분석 실행
+   ex) "title" : "gods heroes"
+       <검색 쿼리 시점 > 
+       (1) search_analyzer 분석기가 정의 되었는지 확인 ( search_analyzer : 검색 시 사용 된다. 참고자료 : http://jjeong.tistory.com/854 )
+       (2) 용어 분석  : gods , heroes 
+       (3) 아래와 같이 생성 된 용어 레벨 쿼리 실행
+
+       <색인 시점 >
+       (1) "title" : "gods & heroes : rome rising" 
+       (2) 분석기를 사용하여 분할 : gods / heroes / rome / rising
+       (3) 역색인에 분할 된 단어+빈도+도큐먼트ID 저장
+
+● Match / Match Phrase / Multi Match 쿼리가 있다
+
+2-5 유사도 기반 쿼리 종류
+● Match : 전문 텍스트 검색 요구 사항에 사용하는 기본 쿼리
+   단, keyword type 필드일 경우, 용어레벨쿼리 - Term 종류와 동일하게 분석
+● Match 옵션 : Operator / minimum_should_match / Fuzziness
+   ▶ Operator : 기본값은 "OR" 이지만, "operator" : "and" 와 같이 적용 가능
+   ▶ minimum_should_match : or 연산자를 사용하되, 결과로 나오는 도큐먼트에서 일치하는 용어의 최소 개수를 지정할 수 있다
+   ▶ Fuzziness : 원본 문자열과 다른 문자열로 변경하기 위한 편집 횟수 측정
+      victory 대신 victor 라는 단어로 잘못 지정 될 경우 Fuzziness 값을 1로 지정하면 검색 가능 
+
+● Match Phrase ('구문, 문장' 일치)
+    Match는 검색어 순서와 각 용어 간 근접성을 고려하지 않는다 ( *WIPS :  and, or, not ) 
+    아래 그림과 같이 query term 순서가 달라도 검색이 된다 (단어만 일치하면 되는 것)
+
+
+
+      그러나, Match_phrase 의 경우 Match와 똑같은 조건으로 검색 시 결과 값이 나오지 않는다 ( *WIPS : A adj1 B adj1 C )
+       이로 미루어 보는 점은, Match_phrase는 검색어 순서와 각 용어 간 근접성을 고려한다
+
+
+
+       slop 옵션을 사용 할 경우, 쿼리 시점에 건너 뛰거나 도치 되는 단어 개수/접근을 어느정도 허용합니다
+
+
+
+
+● Multi Match
+   여러 필드에서 일치하는 쿼리를 실행 ( *WIPS  (hybrid and car).ti, ab, cl. )
+
+
+ 특정 필드의 스코어 높이기 "fields" : [ "title^3" , "description" ]  과 같이 설정하면 title 필드의 중요성이 3배로 높아진다
+
+
+
+
+(출처 : http://yookeun.github.io/elasticsearch/2018/03/09/elastic-mapping/   http://guruble.com/elasticsearch-2-shard-replica/  http://jjeong.tistory.com/854 http://asuraiv.blogspot.com/2015/05/elasticsearch-inverted-index.html)
+
+
+3.query_string : 필드 여러개, query 여러개 , 구문 연산자 사용, wildcard 등 다양하게 쓰고싶을때 
+
+● query : 검색할 쿼리문 입력 ( 와일드카드 * 사용 가능 )
+● fields : 다중 필드로 검색 가능  ["IPCC" , "AB" ] 
+● default_operator : 쿼리문에서 검색할때 기본 연산자 설정
+● analyze_wildcard : 와일드 카들르 사용할 것인지?
+
+
+4._search 결과값 증가
+
+_search의 결과값은 default=10으로 10개까지만 뿌려준다 그 이상의 출력값을 보고 싶을 경우에 위와 같이 size값을 조절하면 된다
+
+
+5.형태소 분석 테스트
+
+
+
+형태소 분석 결과를 보고 싶을 때는, _analyze 를 사용하면 된다
+ex ) us_index3 밑의 KsgmtEstemIdx라고 설정 된 형태분석기를 사용한다고 지정 한뒤, 쿼리문을 작성하면 형태분석기대로 맞춰서 분석이 된다
+
+6.bool > must / must not / should 
+bool 쿼리란? 부울 로직을 사용하여 작은 쿼리로 더 큰 쿼리를 만들 수 있다
+
+must, must not, should 등을 이용하여 다중 쿼리를 묶어서 검색이 가능하다
+must : 무조건 true 일때
+must_not : 무조건 true가 아닐때
+should : 지정된 쿼리 중 하나라도 true면 일치
+
+
+
+
+8. 초벌 데이터 생성
+
+
+•tokenizer 가 standard 일 경우 내장 된 표준 분석기 사용
+•위와 같이 patomic 으로 사용 될 경우, 아래에 추가로 사용자 분석기에 대한 내용을 추가 해준다
+•필터도 마찬가지로, 위의 KsgmtEstemIdx 처럼 표준 필터를 사용하거나 , 1_N_gram 과 같이 사용자 필터를 지정해주는 경우 아래에 추가로 필터 설정을 추가한다
+
+
+•특정 형태소 분석이 국가별로 분리가 되었을때 처리는 어떻게 할것인가?
+•엘라스틱서치 6.2를 이용한 한국어, 중국어, 일본어 검색 (https://www.elastic.co/kr/blog/how-to-search-ch-jp-kr-part-2)
+•Multi-fields (언어별 분석기)를 사용한다, openkoreantext-analyzer, kuromoji, smartcn를 설치해야함
+•한국어 : openkoreantext-analyzer , https://github.com/elastic/elasticsearch-analysis-kuromoji/branches
+•일본어 : kuromoji , https://github.com/elastic/elasticsearch-analysis-kuromoji
+
+•중국어 : smartcn ,  https://github.com/elastic/elasticsearch/tree/master/plugins/analysis-smartcn
+
+혹은, 지원하고 있는 cjk ( Chinese , Japanese, Korean) 를 사용한다 *(참고 : 시작하세요! 엘라스틱서치 p321)
+"analyzer": {
+ "language" : { "type" : "cjk"}
+}
+ 
+
+ 
+
+
+ 
+
+9. 초벌 데이터 Mapping 관련 옵션
+
+ 
+1.stopword 
+
+● analysis 설정 시 stopwords : _english_로 옵션 값을 줄 경우, 영어 불용어 적용이 가능하하다.
+추가로 제거하고 싶은 문자열이 있을 경우 아래와 같이 사용자 추가가 가능하다
+● filter 설정
+
+● type : stop / stopwords : [  " 제외하고 싶은 문자열 "  ]
+
+
+
+2.tokenizer
+
+● "tokenizer" : "standard" 로 사용할 경우 ( *WIPS 형태분석 Kwordnum 과 동일)
+● 기본 설정값을 사용하지 않을 경우, 위 그림 ( Patomic 예시 )와 같이 filter 를 추가하여 사용자 tokenizer 생성이 가능하다
+   type : ( 적용하고 싶은 필터 https://www.elastic.co/guide/en/elasticsearch/reference/current/analysis-simplepatternsplit-tokenizer.html ) 
+   pattern :  str.split ( "WORD") 의  WORD 부분과 같은 기능 해당 패턴을 기준으로 토큰을 나눈다
+ 
+
+ 
+
+ 
+
+( 출처 :  https://www.slideshare.net/dahlmoon/20160623 ( 토큰)  https://www.slideshare.net/dahlmoon/20160613 (기본) )
+
+ 
+
+ 
